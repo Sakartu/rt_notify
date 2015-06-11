@@ -2,9 +2,10 @@
 # -*- coding: utf8 -*-
 """
 Usage:
-rt_notify USERPASSFILE
+rt_notify [options] USERPASSFILE
 
 Options:
+--debug     Start in debugging mode, which will send notifications for all tickets
 """
 import logging
 from bs4 import BeautifulSoup
@@ -48,6 +49,7 @@ def main():
             soup = BeautifulSoup(r.text)
             tables = soup.find_all("table", {"class": "ticket-list collection-as-table"})
             for table in tables:
+                logging.debug('Found table')
                 last_update_idx = 0
                 subject_idx = 0
                 for i, th in enumerate(table.tr.find_all("th")):
@@ -59,13 +61,14 @@ def main():
                 if not last_update_idx:
                     continue
 
+                logging.debug('Found valid entries in table')
                 for line in table.find_all("tr"):
                     tds = line.find_all("td")
-                    if len(tds) > last_update_idx and user in tds[last_update_idx]:
+                    if len(tds) > last_update_idx and (user not in tds[last_update_idx] or args['--debug']):
                         ticketnr = int(tds[0].a.contents[0])
                         subject = tds[subject_idx].a.contents[0]
                         msg = "Ticket {} is new: '{}'".format(ticketnr, subject)
-                        logging.debug(msg)
+                        logging.info(msg)
                         Notifier.notify(msg, title="Request Tracker")
         except requests.exceptions.RequestException:
             logging.warning("Could not connect to Request Tracker, trying again soon")
