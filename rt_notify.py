@@ -21,10 +21,27 @@ __author__ = 'peter'
 URL = 'http://intake.surv.intern/'
 
 
+def setup_logging():
+    """
+    Setup logging
+    """
+    formatter = logging.Formatter('%(asctime)s (%(process)d:%(name)s) [ %(levelname)7s ] : %(message)s')
+    rootlogger = logging.getLogger()
+
+    consolehandler = logging.StreamHandler()
+    consolehandler.setFormatter(formatter)
+
+    rootlogger.addHandler(consolehandler)
+    rootlogger.setLevel(logging.INFO)
+    logging.getLogger("requests").setLevel(logging.WARNING)
+
+
 def main():
     args = docopt(__doc__)
-    logging.basicConfig()
+    setup_logging()
+    logging.info('Getting user/pass')
     user, passwd = [x.strip() for x in open(args['USERPASSFILE']).readlines() if x]
+    logging.info('Starting RT monitor')
     while True:
         try:
             r = requests.get(URL, auth=(user, passwd), timeout=3)
@@ -51,7 +68,7 @@ def main():
                         logging.debug(msg)
                         Notifier.notify(msg, title="Request Tracker")
         except requests.exceptions.RequestException:
-            Notifier.notify("Could not connect to request tracker!", title="Request Tracker")
+            logging.warning("Could not connect to Request Tracker, trying again soon")
             pass
         time.sleep(5 * 60)
 
