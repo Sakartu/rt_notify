@@ -2,9 +2,11 @@
 # -*- coding: utf8 -*-
 """
 Usage:
-rt_notify [options] USERPASSFILE
+rt_notify [options] USERPASSFILE URL
 
 Options:
+USERPASSFILE            A file with your HTTP Basic Auth username and password, each on a separate line
+URL                     The url of the Request Tracker homepage
 --debug                 Start in debugging mode, which will send notifications for all tickets
 --notify_timeout T      Wait T seconds before notifying about same ticket again. [default: 3600]
 """
