@@ -23,9 +23,6 @@ import expiringdict
 __author__ = 'peter'
 
 
-URL = 'http://intake.surv.intern/'
-
-
 def setup_logging():
     """
     Setup logging
@@ -94,7 +91,7 @@ def main():
     tickets = expiringdict.ExpiringDict(max_len=100, max_age_seconds=int(args['--notify_timeout']))
     while True:
         try:
-            r = requests.get(URL, auth=(user, passwd), timeout=3)
+            r = requests.get(args['URL'], auth=(user, passwd), timeout=3)
             soup = BeautifulSoup(r.text)
             tables = soup.find_all("table", {"class": "ticket-list collection-as-table"})
 
