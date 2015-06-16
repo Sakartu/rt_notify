@@ -38,10 +38,10 @@ def setup_logging():
     logging.getLogger("requests").setLevel(logging.WARNING)
 
 
-def notify(msg, ticketnr, subject):
+def notify(args, msg, ticketnr, subject):
     msg = msg.format(ticketnr, subject)
     logging.info(msg)
-    Notifier.notify(msg, title="Request Tracker")
+    Notifier.notify(msg, title="Request Tracker", open=args['URL'] + '/Ticket/Display.html?id={}'.format(ticketnr))
 
 
 def find_indexes(table):
@@ -74,12 +74,12 @@ def process_table(args, tickets, table, user, filter_owner=True):
                 continue
 
             if ticketnr not in tickets:
-                notify("Ticket {} is new: '{}'", ticketnr, subject)
+                notify(args, "Ticket {} is new: '{}'", ticketnr, subject)
                 tickets[ticketnr] = last_updated_by
             elif filter_owner and last_updated_by != tickets[ticketnr]:
-                notify("Ticket {} is updated: '{}'", ticketnr, subject)
+                notify(args, "Ticket {} is updated: '{}'", ticketnr, subject)
             elif args['--debug']:
-                notify("Ticket {} is triggered by debug: '{}'", ticketnr, subject)
+                notify(args, "Ticket {} is triggered by debug: '{}'", ticketnr, subject)
 
 
 def main():
