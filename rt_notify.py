@@ -35,7 +35,7 @@ class RTNotifier(rumps.App):
     CONFIG_NAME = 'rtnotifier.ini'
 
     def __init__(self):
-        super(RTNotifier, self).__init__("RT Notifier", icon='resources/57365.png')
+        super(RTNotifier, self).__init__("RT Notifier", icon='57365.png')
         self.user = None
         self.password = None
         self.url = None
