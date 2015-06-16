@@ -10,15 +10,15 @@ URL                     The url of the Request Tracker homepage
 --debug                 Start in debugging mode, which will send notifications for all tickets
 --notify_timeout T      Wait T seconds before notifying about same ticket again. [default: 3600]
 """
-import logging
-from bs4 import BeautifulSoup
 
+from bs4 import BeautifulSoup
+import requests.exceptions
 from docopt import docopt
 from pync import Notifier
-import requests
-import requests.exceptions
-import time
 import expiringdict
+import requests
+import logging
+import time
 
 __author__ = 'peter'
 
