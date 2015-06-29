@@ -66,7 +66,7 @@ class RTNotifier(rumps.App):
                 config.write(f)
             keyring.set_password(self.__class__.__name__, self.user, self.password)
 
-        self.debug = True
+        self.debug = False
         rumps.debug_mode(self.debug)
 
     @rumps.clicked('Change user and password')
