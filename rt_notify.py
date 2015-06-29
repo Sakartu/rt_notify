@@ -36,6 +36,7 @@ class RTNotifier(rumps.App):
 
     def __init__(self):
         super(RTNotifier, self).__init__("RT Notifier", icon='57365.png')
+        self.tickets = expiringdict.ExpiringDict(max_len=100, max_age_seconds=60*60)
         self.user = None
         self.password = None
         self.url = None
@@ -85,7 +86,6 @@ class RTNotifier(rumps.App):
 
     @rumps.timer(600)
     def run_monitor(self, sender):
-        tickets = expiringdict.ExpiringDict(max_len=100, max_age_seconds=60*60)
         try:
             r = requests.get(self.url, auth=(self.user, self.password), timeout=3)
             soup = BeautifulSoup(r.text)
@@ -103,10 +103,10 @@ class RTNotifier(rumps.App):
                 owned += [tables[2]]
 
             for t in owned:
-                self.process_table(tickets, t)
+                self.process_table(self.tickets, t)
 
             if unowned:
-                self.process_table(tickets, unowned, filter_owner=False)
+                self.process_table(self.tickets, unowned, filter_owner=False)
 
         except requests.exceptions.RequestException:
             logging.warning("Could not connect to Request Tracker, trying again soon")
