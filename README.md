@@ -15,7 +15,9 @@ Furthermore, pync requires that you have terminal-notifier installed, which can 
 
 ## Usage
 
-Call the application with --help to see the commandline options and usage.
+- Create an App bundle using `$ python setup.py py2app`
+- Run the created .app from `./dist/`
+- Any encountered errors can be found in Console.app, usually found at `/Applications/Utilities/Console.app`
 
 This application works best if you set "terminal-notifier" in the Notifications Preference pane to display 
 "Alerts" instead of "Banners", so that the notifications will remain on-screen.
