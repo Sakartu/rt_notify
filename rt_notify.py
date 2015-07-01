@@ -36,58 +36,68 @@ class RTNotifier(rumps.App):
 
     def __init__(self):
         super(RTNotifier, self).__init__("RT Notifier", icon='57365.png')
-        self.tickets = expiringdict.ExpiringDict(max_len=100, max_age_seconds=60*60)
-        self.user = None
-        self.password = None
-        self.url = None
+        self.config = None
 
         # Set user/password/url, either by asking or by getting from the config
         xdg_base = xdg.BaseDirectory.load_first_config(self.__class__.__name__)
         config_path = os.path.join(xdg_base, RTNotifier.CONFIG_NAME) if xdg_base else ''
 
+        self.config = SafeConfigParser(defaults={'renotify_time': '60'})
         if os.path.isfile(config_path):
             # Load config file
             with open(config_path) as f:
-                config = SafeConfigParser()
-                config.readfp(f)
-                self.user = config.get('main', 'user')
-                self.url = config.get('main', 'url')
-                self.password = keyring.get_password(self.__class__.__name__, self.user)
+                self.config.readfp(f)
         else:
-            # Ask user for creds and save them in config file
             self.set_user_pass()
             self.set_url()
-            config = SafeConfigParser()
-            config.add_section('main')
-            config.set('main', 'user', self.user)
-            config.set('main', 'url', self.url)
-            xdg_base = xdg.BaseDirectory.save_config_path(self.__class__.__name__)
-            with open(os.path.join(xdg_base, RTNotifier.CONFIG_NAME), 'w') as f:
-                config.write(f)
-            keyring.set_password(self.__class__.__name__, self.user, self.password)
+            self.save_config()
 
+        renotify_time = int(self.config.get('main', 'renotify_time')) * 60
+        self.tickets = expiringdict.ExpiringDict(max_len=100, max_age_seconds=renotify_time)
         self.debug = False
         rumps.debug_mode(self.debug)
 
     @rumps.clicked('Change user and password')
-    def set_user_pass(self):
+    def set_user_pass(self, _):
         w = rumps.Window('Please enter your username').run()
         if w.clicked:
-            self.user = w.text
-        w = rumps.Window('Please enter your password').run()
-        if w.clicked:
-            self.password = w.text
+            user = w.text
+            self.config.set('main', 'user', w.text)
+
+            w = rumps.Window('Please enter your password').run()
+            if w.clicked:
+                keyring.set_password(self.__class__.__name__, user, w.text)
+        self.save_config()
 
     @rumps.clicked('Change RequestTracker URL')
-    def set_url(self):
+    def set_url(self, _):
         w = rumps.Window('Please enter the RT url').run()
         if w.clicked:
-            self.url = w.text
+            self.config.set('main', 'url', w.text)
+
+    @rumps.clicked('Change renotify time (default 1 hr)')
+    def set_renotify_time(self, _):
+        w = rumps.Window('Please enter a new renotify time, in minutes').run()
+        if w.clicked:
+            try:
+                self.config.set('main', 'renotify_time', w.text)
+
+                old = self.tickets
+                # Create a new expiring dict with the new time
+                self.tickets = expiringdict.ExpiringDict(max_len=100, max_age_seconds=int(w.text) * 60)
+                # Copy all old keys
+                for k, v in old.items():
+                    self.tickets[k] = v
+            except ValueError:
+                rumps.alert('Wrong renotify time', 'The given renotify time is not a valid integer!')
 
     @rumps.timer(600)
-    def run_monitor(self, sender):
+    def run_monitor(self, _):
         try:
-            r = requests.get(self.url, auth=(self.user, self.password), timeout=3)
+            url = self.config.get('main', 'url')
+            user = self.config.get('main', 'user')
+            password = keyring.get_password(self.__class__.__name__, user)
+            r = requests.get(url, auth=(user, password), timeout=3)
             soup = BeautifulSoup(r.text)
             tables = soup.find_all("table", {"class": "ticket-list collection-as-table"})
 
@@ -103,19 +113,20 @@ class RTNotifier(rumps.App):
                 owned += [tables[2]]
 
             for t in owned:
-                self.process_table(self.tickets, t)
+                self.process_table(self.tickets, t, url, user)
 
             if unowned:
-                self.process_table(self.tickets, unowned, filter_owner=False)
+                self.process_table(self.tickets, unowned, url, user, filter_owner=False)
 
         except requests.exceptions.RequestException:
             logging.warning("Could not connect to Request Tracker, trying again soon")
             pass
 
-    def notify(self, msg, ticketnr, subject):
+    @staticmethod
+    def notify(url, msg, ticketnr, subject):
         msg = msg.format(ticketnr, subject)
         logging.info(msg)
-        Notifier.notify(msg, title="Request Tracker", open=self.url + '/Ticket/Display.html?id={}'.format(ticketnr))
+        Notifier.notify(msg, title="Request Tracker", open=url + '/Ticket/Display.html?id={}'.format(ticketnr))
 
     @staticmethod
     def find_indexes(table):
@@ -128,7 +139,7 @@ class RTNotifier(rumps.App):
                 subject_idx = i
         return last_update_idx, subject_idx
 
-    def process_table(self, tickets, table, filter_owner=True):
+    def process_table(self, tickets, table, url, user, filter_owner=True):
         logging.debug('Processing table')
         last_update_idx, subject_idx = self.find_indexes(table)
 
@@ -143,16 +154,26 @@ class RTNotifier(rumps.App):
                 subject = tds[subject_idx].a.contents[0]
                 last_updated_by = tds[last_update_idx].contents[0]
 
-                if filter_owner and last_updated_by == self.user:
+                if filter_owner and last_updated_by == user:
                     continue
 
                 if ticketnr not in tickets:
-                    self.notify("Ticket {} is new: '{}'", ticketnr, subject)
+                    self.notify(url, "Ticket {} is new: '{}'", ticketnr, subject)
                     tickets[ticketnr] = last_updated_by
                 elif filter_owner and last_updated_by != tickets[ticketnr]:
-                    self.notify("Ticket {} is updated: '{}'", ticketnr, subject)
+                    self.notify(url, "Ticket {} is updated: '{}'", ticketnr, subject)
                 elif self.debug:
-                    self.notify("Ticket {} is triggered by debug: '{}'", ticketnr, subject)
+                    self.notify(url, "Ticket {} is triggered by debug: '{}'", ticketnr, subject)
+
+    def get_config_path(self):
+        xdg_base = xdg.BaseDirectory.load_first_config(self.__class__.__name__)
+        return os.path.join(xdg_base, RTNotifier.CONFIG_NAME) if xdg_base else ''
+
+    def save_config(self):
+        config_path = self.get_config_path()
+
+        with open(config_path, 'w') as f:
+            self.config.write(f)
 
 
 def main():
