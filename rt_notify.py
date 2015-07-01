@@ -42,7 +42,7 @@ class RTNotifier(rumps.App):
         xdg_base = xdg.BaseDirectory.load_first_config(self.__class__.__name__)
         config_path = os.path.join(xdg_base, RTNotifier.CONFIG_NAME) if xdg_base else ''
 
-        self.config = SafeConfigParser(defaults={'renotify_time': '60'})
+        self.config = SafeConfigParser()
         if os.path.isfile(config_path):
             # Load config file
             with open(config_path) as f:
@@ -51,36 +51,41 @@ class RTNotifier(rumps.App):
             self.config.add_section('main')
             self.set_user_pass(None)
             self.set_url(None)
+            self.set_renotify_time(None)
             self.save_config()
 
-        renotify_time = int(self.config.get('main', 'renotify_time')) * 60
+        renotify_time = self.config.getint('main', 'renotify_time') * 60
         self.tickets = expiringdict.ExpiringDict(max_len=100, max_age_seconds=renotify_time)
         self.debug = False
         rumps.debug_mode(self.debug)
 
     def set_user_pass(self, _):
-        w = rumps.Window('Please enter your username').run()
-        if w.clicked:
+        w = self.ask('Please enter your username')
+        old_user = self.config.get('main', 'user')
+        if w.clicked and w.text:
             user = w.text
             self.config.set('main', 'user', w.text)
 
-            w = rumps.Window('Please enter your password').run()
-            if w.clicked:
+            w = self.ask('Please enter your password')
+            if w.clicked and w.text:
                 keyring.set_password(self.__class__.__name__, user, w.text)
+            else:
+                self.config.set('main', 'user', old_user)
         self.save_config()
 
     def set_url(self, _):
-        w = rumps.Window('Please enter the RT url').run()
-        if w.clicked:
+        w = self.ask('Please enter the RT url')
+        if w.clicked and w.text:
             self.config.set('main', 'url', w.text)
+        self.save_config()
 
     def set_renotify_time(self, sender):
-        w = rumps.Window('Please enter a new renotify time, in minutes').run()
-        if w.clicked:
+        w = self.ask('Please enter a new renotify time, in minutes')
+        if w.clicked and w.text:
             try:
-                sender.title = 'Change renotify time (now {} minutes)'.format(w.text)
-
+                int(w.text)
                 self.config.set('main', 'renotify_time', w.text)
+                sender.title = 'Change renotify time (now {} minutes)'.format(w.text)
 
                 old = self.tickets
                 # Create a new expiring dict with the new time
@@ -89,7 +94,8 @@ class RTNotifier(rumps.App):
                 for k, v in old.items():
                     self.tickets[k] = v
             except ValueError:
-                rumps.alert('Wrong renotify time', 'The given renotify time is not a valid integer!')
+                rumps.alert('The given renotify time is not a valid integer!')
+        self.save_config()
 
     @rumps.timer(600)
     def run_monitor(self, _):
@@ -121,23 +127,6 @@ class RTNotifier(rumps.App):
         except requests.exceptions.RequestException:
             logging.warning("Could not connect to Request Tracker, trying again soon")
             pass
-
-    @staticmethod
-    def notify(url, msg, ticketnr, subject):
-        msg = msg.format(ticketnr, subject)
-        logging.info(msg)
-        Notifier.notify(msg, title="Request Tracker", open=url + '/Ticket/Display.html?id={}'.format(ticketnr))
-
-    @staticmethod
-    def find_indexes(table):
-        last_update_idx = 0
-        subject_idx = 0
-        for i, th in enumerate(table.tr.find_all("th")):
-            if 'Last Updated By' in th.contents:
-                last_update_idx = i
-            if 'Subject' in th.contents:
-                subject_idx = i
-        return last_update_idx, subject_idx
 
     def process_table(self, tickets, table, url, user, filter_owner=True):
         logging.debug('Processing table')
@@ -181,6 +170,27 @@ class RTNotifier(rumps.App):
                 v.title = 'Change renotify time (now {} minutes)'.format(text)
                 return
 
+    @staticmethod
+    def notify(url, msg, ticketnr, subject):
+        msg = msg.format(ticketnr, subject)
+        logging.info(msg)
+        Notifier.notify(msg, title="Request Tracker", open=url + '/Ticket/Display.html?id={}'.format(ticketnr))
+
+    @staticmethod
+    def find_indexes(table):
+        last_update_idx = 0
+        subject_idx = 0
+        for i, th in enumerate(table.tr.find_all("th")):
+            if 'Last Updated By' in th.contents:
+                last_update_idx = i
+            if 'Subject' in th.contents:
+                subject_idx = i
+        return last_update_idx, subject_idx
+
+    @staticmethod
+    def ask(message):
+        return rumps.Window(message, dimensions=(320, 20), cancel=True).run()
+
 
 def main():
     setup_logging()
@@ -189,8 +199,8 @@ def main():
     app.menu = [
         rumps.MenuItem('Change user and password', callback=app.set_user_pass),
         rumps.MenuItem('Change RequestTracker URL', callback=app.set_url),
-        rumps.MenuItem('Change renotify time (now {} minutes)'.format(app.config.get('main', 'renotify_time')),
-                       callback=app.set_user_pass),
+        rumps.MenuItem('Change renotify time (now {} minutes)'.format(app.config.getint('main', 'renotify_time')),
+                       callback=app.set_renotify_time),
         None
     ]
     app.run()
