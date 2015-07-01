@@ -3,6 +3,7 @@
 from ConfigParser import SafeConfigParser
 import os
 import logging
+import webbrowser
 
 from bs4 import BeautifulSoup
 import keyring
@@ -113,6 +114,8 @@ class RTNotifier(rumps.App):
             soup = BeautifulSoup(r.text)
             tables = soup.find_all("table", {"class": "ticket-list collection-as-table"})
 
+            self.menu['Recent tickets'] = []
+
             owned = []
             unowned = None
             if len(tables):
@@ -176,11 +179,13 @@ class RTNotifier(rumps.App):
                 v.title = 'Change renotify time (now {} minutes)'.format(text)
                 return
 
-    @staticmethod
-    def notify(url, msg, ticketnr, subject):
+    def notify(self, url, msg, ticketnr, subject):
         msg = msg.format(ticketnr, subject)
         logging.info(msg)
-        Notifier.notify(msg, title="Request Tracker", open=url + '/Ticket/Display.html?id={}'.format(ticketnr))
+        url = url + '/Ticket/Display.html?id={}'.format(ticketnr)
+        self.menu['Recent tickets'].add(rumps.MenuItem(msg, callback=lambda x: webbrowser.open(url)))
+        Notifier.notify(msg, title="Request Tracker", open=url)
+
 
     @staticmethod
     def find_indexes(table):
@@ -211,6 +216,10 @@ def main():
     logging.info('Starting RT monitor')
     app = RTNotifier()
     app.menu = [
+        {'Recent tickets': [
+
+        ]},
+        None,
         rumps.MenuItem('Change user and password', callback=app.set_user_pass),
         rumps.MenuItem('Change RequestTracker URL', callback=app.set_url),
         rumps.MenuItem('Change renotify time (now {} minutes)'.format(app.config.getint('main', 'renotify_time')),
