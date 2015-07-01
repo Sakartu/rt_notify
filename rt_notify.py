@@ -2,6 +2,7 @@
 # -*- coding: utf8 -*-
 from ConfigParser import SafeConfigParser
 import os
+import logging
 
 from bs4 import BeautifulSoup
 import keyring
@@ -9,9 +10,10 @@ import requests.exceptions
 from pync import Notifier
 import rumps
 import xdg.BaseDirectory
-import expiringdict
 import requests
-import logging
+
+import expiringdict
+
 # noinspection PyUnresolvedReferences
 from AppKit import NSSecureTextField
 # noinspection PyUnresolvedReferences
