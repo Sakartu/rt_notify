@@ -56,10 +56,10 @@ class RTNotifier(rumps.App):
                 self.config.readfp(f)
         else:
             self.config.add_section('main')
-            self.set_user_pass(None)
-            self.set_url(None)
-            self.set_renotify_time(None)
-            self.save_config()
+            if self.set_user_pass(None) and self.set_url(None) and self.set_renotify_time(None):
+                self.save_config()
+            else:
+                rumps.quit_application()
 
         renotify_time = self.config.getint('main', 'renotify_time') * 60
         self.tickets = expiringdict.ExpiringDict(max_len=100, max_age_seconds=renotify_time)
@@ -78,13 +78,19 @@ class RTNotifier(rumps.App):
                 keyring.set_password(self.__class__.__name__, user, w.text)
             else:
                 self.config.set('main', 'user', old_user)
+                return False
+        else:
+            return False
         self.save_config()
+        return True
 
     def set_url(self, _):
         w = self.ask('Please enter the RT url')
         if w.clicked and w.text:
             self.config.set('main', 'url', w.text)
+            return False
         self.save_config()
+        return True
 
     def set_renotify_time(self, sender):
         w = self.ask('Please enter a new renotify time, in minutes')
@@ -102,7 +108,10 @@ class RTNotifier(rumps.App):
                     self.tickets[k] = v
             except ValueError:
                 rumps.alert('The given renotify time is not a valid integer!')
+        else:
+            return False
         self.save_config()
+        return True
 
     @rumps.timer(600)
     def run_monitor(self, _):
