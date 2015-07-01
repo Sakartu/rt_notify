@@ -30,6 +30,6 @@ setup(
         'pync>=1.6.1',
         'keyring>=5.3',
         'rumps>=0.2.1',
-        'pyobjc>=3.0.4'
+        'pyobjc>=3.0.4',
     ]
 )

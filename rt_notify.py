@@ -12,6 +12,10 @@ import xdg.BaseDirectory
 import expiringdict
 import requests
 import logging
+# noinspection PyUnresolvedReferences
+from AppKit import NSSecureTextField
+# noinspection PyUnresolvedReferences
+from Foundation import NSMakeRect
 
 __author__ = 'peter'
 
@@ -66,7 +70,7 @@ class RTNotifier(rumps.App):
             user = w.text
             self.config.set('main', 'user', w.text)
 
-            w = self.ask('Please enter your password')
+            w = self.ask('Please enter your password', password=True)
             if w.clicked and w.text:
                 keyring.set_password(self.__class__.__name__, user, w.text)
             else:
@@ -187,9 +191,17 @@ class RTNotifier(rumps.App):
                 subject_idx = i
         return last_update_idx, subject_idx
 
+    # noinspection PyProtectedMember
     @staticmethod
-    def ask(message):
-        return rumps.Window(title=message, dimensions=(320, 20), cancel=True).run()
+    def ask(message, password=False):
+        dimensions = (320, 20)
+        w = rumps.Window(title=message, dimensions=dimensions, cancel=True)
+        if password:
+            w._textfield = NSSecureTextField.alloc().initWithFrame_(NSMakeRect(0, 0, *dimensions))
+            w._textfield.setSelectable_(True)
+            w._alert.setAccessoryView_(w._textfield)
+
+        return w.run()
 
 
 def main():
