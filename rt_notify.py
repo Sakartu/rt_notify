@@ -189,7 +189,7 @@ class RTNotifier(rumps.App):
 
     @staticmethod
     def ask(message):
-        return rumps.Window(message, dimensions=(320, 20), cancel=True).run()
+        return rumps.Window(title=message, dimensions=(320, 20), cancel=True).run()
 
 
 def main():
