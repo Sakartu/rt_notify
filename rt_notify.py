@@ -48,8 +48,9 @@ class RTNotifier(rumps.App):
             with open(config_path) as f:
                 self.config.readfp(f)
         else:
-            self.set_user_pass()
-            self.set_url()
+            self.config.add_section('main')
+            self.set_user_pass(None)
+            self.set_url(None)
             self.save_config()
 
         renotify_time = int(self.config.get('main', 'renotify_time')) * 60
@@ -57,7 +58,6 @@ class RTNotifier(rumps.App):
         self.debug = False
         rumps.debug_mode(self.debug)
 
-    @rumps.clicked('Change user and password')
     def set_user_pass(self, _):
         w = rumps.Window('Please enter your username').run()
         if w.clicked:
@@ -69,17 +69,17 @@ class RTNotifier(rumps.App):
                 keyring.set_password(self.__class__.__name__, user, w.text)
         self.save_config()
 
-    @rumps.clicked('Change RequestTracker URL')
     def set_url(self, _):
         w = rumps.Window('Please enter the RT url').run()
         if w.clicked:
             self.config.set('main', 'url', w.text)
 
-    @rumps.clicked('Change renotify time (default 1 hr)')
-    def set_renotify_time(self, _):
+    def set_renotify_time(self, sender):
         w = rumps.Window('Please enter a new renotify time, in minutes').run()
         if w.clicked:
             try:
+                sender.title = 'Change renotify time (now {} minutes)'.format(w.text)
+
                 self.config.set('main', 'renotify_time', w.text)
 
                 old = self.tickets
@@ -175,11 +175,25 @@ class RTNotifier(rumps.App):
         with open(config_path, 'w') as f:
             self.config.write(f)
 
+    def update_renotify_menu_item(self, text):
+        for k, v in self.menu.items():
+            if v.title.startswith('Change renotify time'):
+                v.title = 'Change renotify time (now {} minutes)'.format(text)
+                return
+
 
 def main():
     setup_logging()
     logging.info('Starting RT monitor')
-    RTNotifier().run()
+    app = RTNotifier()
+    app.menu = [
+        rumps.MenuItem('Change user and password', callback=app.set_user_pass),
+        rumps.MenuItem('Change RequestTracker URL', callback=app.set_url),
+        rumps.MenuItem('Change renotify time (now {} minutes)'.format(app.config.get('main', 'renotify_time')),
+                       callback=app.set_user_pass),
+        None
+    ]
+    app.run()
 
 
 if __name__ == '__main__':
