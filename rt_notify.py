@@ -15,6 +15,7 @@ import requests
 
 import expiringdict
 
+
 # noinspection PyUnresolvedReferences
 from AppKit import NSSecureTextField
 # noinspection PyUnresolvedReferences
@@ -194,7 +195,6 @@ class RTNotifier(rumps.App):
         url = url + '/Ticket/Display.html?id={}'.format(ticketnr)
         self.menu['Recent tickets'].add(rumps.MenuItem(msg, callback=lambda x: webbrowser.open(url)))
         Notifier.notify(msg, title="Request Tracker", open=url)
-
 
     @staticmethod
     def find_indexes(table):
