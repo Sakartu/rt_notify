@@ -121,6 +121,14 @@ class RTNotifier(rumps.App):
             user = self.config.get('main', 'user')
             password = keyring.get_password(self.__class__.__name__, user)
             r = requests.get(url, auth=(user, password), timeout=3)
+            if r.status_code == 401:
+                # Forbidden, user/pass combo is probably wrong. Reask.
+                rumps.alert('Could not login, please reenter username and password!')
+                self.set_user_pass(None)
+                user = self.config.get('main', 'user')
+                password = keyring.get_password(self.__class__.__name__, user)
+                r = requests.get(url, auth=(user, password), timeout=3)
+
             soup = BeautifulSoup(r.text, "lxml")
             tables = soup.find_all("table", {"class": "ticket-list collection-as-table"})
 
