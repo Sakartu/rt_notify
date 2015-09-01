@@ -121,7 +121,7 @@ class RTNotifier(rumps.App):
             user = self.config.get('main', 'user')
             password = keyring.get_password(self.__class__.__name__, user)
             r = requests.get(url, auth=(user, password), timeout=3)
-            soup = BeautifulSoup(r.text)
+            soup = BeautifulSoup(r.text, "lxml")
             tables = soup.find_all("table", {"class": "ticket-list collection-as-table"})
 
             self.menu['Recent tickets'] = []
@@ -229,6 +229,7 @@ def main():
 
         ]},
         None,
+        rumps.MenuItem('Force recheck', callback=app.run_monitor),
         rumps.MenuItem('Change user and password', callback=app.set_user_pass),
         rumps.MenuItem('Change RequestTracker URL', callback=app.set_url),
         rumps.MenuItem('Change renotify time (now {} minutes)'.format(app.config.getint('main', 'renotify_time')),
